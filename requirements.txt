@@ -4,3 +4,4 @@ thermosteam
 pandas
 google-generativeai
 graphviz
+tabulate
