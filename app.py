@@ -220,7 +220,7 @@ with cp1:
     st.caption("Representación general de las etapas del proceso bajo normativas ISO.")
     if os.path.exists("diagrama_bloques.pdf"):
         with open("diagrama_bloques.pdf", "rb") as f:
-            st.download_button("📥 Descargar DB", f, "Bloques_ISO.pdf", "application/pdf")
+            st.download_button("📥 Descargar DB", f, "DB.pdf", "application/pdf")
     else: 
         st.info("Sube diagrama_bloques.pdf al repositorio.")
         
@@ -229,7 +229,7 @@ with cp2:
     st.caption("Avance del diagrama detallado con instrumentación bajo normativas ISO.")
     if os.path.exists("diagrama_flujo.pdf"):
         with open("diagrama_flujo.pdf", "rb") as f:
-            st.download_button("📥 Descargar DFP", f, "PFD_ISO.pdf", "application/pdf")
+            st.download_button("📥 Descargar DFP", f, "DFP_ISO.pdf", "application/pdf")
     else: 
         st.info("Sube diagrama_flujo.pdf al repositorio.")
 
