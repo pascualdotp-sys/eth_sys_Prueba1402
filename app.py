@@ -246,7 +246,7 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
                 if os.path.exists("diagrama_flujo.pdf"):
                     with open("diagrama_flujo.pdf", "rb") as file:
                         st.download_button(
-                            label="📥 Descargar PFD (AutoCAD)",
+                            label="📥 Descargar Diagrama de Flujo de Proceso",
                             data=file,
                             file_name="Diagrama_Flujo_Proceso_ISO.pdf",
                             mime="application/pdf"
@@ -272,7 +272,7 @@ if 'df_mat' in st.session_state and 'df_en' in st.session_state:
         with st.spinner("El tutor IA está analizando los balances..."):
             try:
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                modelo = genai.GenerativeModel('gemini-1.5-flash')
+                modelo = genai.GenerativeModel('gemini-2.5-pro')
                 
                 prompt = f"""
                 Actúa como un profesor experto en ingeniería química. Aquí tienes los resultados 
