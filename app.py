@@ -256,7 +256,3 @@ if tutor_mode:
                     st.error(f"❌ Error de conexión con la IA: {str(e)}")
             else:
                 st.error("⚠️ Configura GEMINI_API_KEY en los Secrets de Streamlit para usar el chat.")
-    except Exception as e:
-        st.error("Por favor, asegúrate de configurar GEMINI_API_KEY en Streamlit Secrets.")
-else:
-    st.info("Activa el interruptor superior para hablar con el tutor IA.")
