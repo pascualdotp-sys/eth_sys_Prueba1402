@@ -110,7 +110,7 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
     producto = W310.outs[0]
     flujo_total = producto.F_mass
     
-    # 🔴 SOLUCIÓN 1: Validar si la corriente de producto está vacía por mala termodinámica
+    # Validación física de la corriente
     if flujo_total <= 0.001:
         raise ValueError("Las condiciones actuales (Temperatura/Presión) no evaporan el etanol. El flujo de producto es 0 kg/h, por lo que el análisis económico no se puede calcular. ¡Prueba subiendo la temperatura del W-220 o bajando la presión del V-100!")
 
@@ -167,7 +167,6 @@ etanol_feed = st.sidebar.number_input("Flujo de Etanol (kg/h)", value=100)
 
 st.sidebar.markdown("---")
 st.sidebar.header("💰 Parámetros Económicos")
-# 🔴 SOLUCIÓN 2: Agregando el parámetro 'step' a los sliders para destrabarlos
 precio_luz = st.sidebar.slider("Precio Luz ($/kWh)", min_value=0.01, max_value=0.20, value=0.085, step=0.005, format="$%.3f")
 precio_vapor = st.sidebar.slider("Precio Vapor ($/MJ)", min_value=0.01, max_value=0.10, value=0.025, step=0.005, format="$%.3f")
 precio_agua = st.sidebar.slider("Precio Agua ($/MJ)", min_value=0.0001, max_value=0.0050, value=0.0005, step=0.0001, format="$%.4f")
@@ -209,17 +208,48 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
                 st.subheader("Balance de Energía")
                 st.dataframe(df_en, use_container_width=True)
                 
-            st.subheader("🗺️ Diagrama de Flujo (PFD)")
+            st.subheader("🗺️ Diagrama de Flujo (PFD BioSTEAM)")
             if os.path.exists(diagram_file):
                 st.image(diagram_file)
             else:
                 st.warning("El diagrama no se pudo renderizar. Verifica que graphviz esté instalado en el sistema.")
+
+            # ================= NUEVA SECCIÓN: PLANOS ISO (AUTOCAD) =================
+            st.markdown("---")
+            st.subheader("📐 Planos de Ingeniería (Normas ISO)")
+            st.write("Documentación técnica generada en AutoCAD Plant 3D:")
+            
+            col_pdf1, col_pdf2 = st.columns(2)
+            
+            with col_pdf1:
+                if os.path.exists("diagrama_bloques.pdf"):
+                    with open("diagrama_bloques.pdf", "rb") as file:
+                        st.download_button(
+                            label="📥 Descargar Diagrama de Bloques",
+                            data=file,
+                            file_name="Diagrama_Bloques_ISO.pdf",
+                            mime="application/pdf"
+                        )
+                else:
+                    st.info("Aún no se ha subido el archivo 'diagrama_bloques.pdf' al repositorio.")
+            
+            with col_pdf2:
+                if os.path.exists("diagrama_flujo.pdf"):
+                    with open("diagrama_flujo.pdf", "rb") as file:
+                        st.download_button(
+                            label="📥 Descargar PFD (AutoCAD)",
+                            data=file,
+                            file_name="Diagrama_Flujo_Proceso_ISO.pdf",
+                            mime="application/pdf"
+                        )
+                else:
+                    st.info("Aún no se ha subido el archivo 'diagrama_flujo.pdf' al repositorio.")
+            # =======================================================================
             
             st.session_state['df_mat'] = df_mat
             st.session_state['df_en'] = df_en
             
         except ValueError as ve:
-            # Mostramos las advertencias físicas de forma limpia
             st.warning(ve)
         except Exception as e:
             st.error(f"Error en la simulación: {e}")
@@ -233,7 +263,7 @@ if 'df_mat' in st.session_state and 'df_en' in st.session_state:
         with st.spinner("El tutor IA está analizando los balances..."):
             try:
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                modelo = genai.GenerativeModel('gemini-2.5-pro')
+                modelo = genai.GenerativeModel('gemini-1.5-flash')
                 
                 prompt = f"""
                 Actúa como un profesor experto en ingeniería química. Aquí tienes los resultados 
