@@ -214,14 +214,19 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
             else:
                 st.warning("El diagrama no se pudo renderizar. Verifica que graphviz esté instalado en el sistema.")
 
-            # ================= NUEVA SECCIÓN: PLANOS ISO (AUTOCAD) =================
+       # ================= NUEVA SECCIÓN: PLANOS ISO (AUTOCAD) =================
             st.markdown("---")
             st.subheader("📐 Planos de Ingeniería (Normas ISO)")
             st.write("Documentación técnica generada en AutoCAD Plant 3D:")
+            st.write("") # Espacio en blanco para que respire el diseño
             
             col_pdf1, col_pdf2 = st.columns(2)
             
             with col_pdf1:
+                # Texto descriptivo explícito sobre el archivo 1
+                st.markdown("**1. Diagrama de Bloques**")
+                st.caption("Representación general de las etapas del proceso bajo normativas ISO.")
+                
                 if os.path.exists("diagrama_bloques.pdf"):
                     with open("diagrama_bloques.pdf", "rb") as file:
                         st.download_button(
@@ -234,6 +239,10 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
                     st.info("Aún no se ha subido el archivo 'diagrama_bloques.pdf' al repositorio.")
             
             with col_pdf2:
+                # Texto descriptivo explícito sobre el archivo 2
+                st.markdown("**2. Diagrama de Flujo de Proceso (PFD)**")
+                st.caption("Avance del diagrama detallado con instrumentación bajo normativas ISO.")
+                
                 if os.path.exists("diagrama_flujo.pdf"):
                     with open("diagrama_flujo.pdf", "rb") as file:
                         st.download_button(
