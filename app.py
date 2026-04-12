@@ -6,7 +6,7 @@ import google.generativeai as genai
 import os
 
 # ================= CONFIGURACIÓN DE PÁGINA =================
-st.set_page_config(page_title="Simulador Avanzado - Quelixtia Engineering", layout="wide")
+st.set_page_config(page_title="Simulador Avanzado - Ingeniería", layout="wide")
 
 # ================= CLASE ECONÓMICA (TEA) =================
 class TEA_Didactico(bst.TEA):
@@ -111,19 +111,33 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
 
     producto = W310.outs[0]
     if producto.F_mass <= 0.001:
-        raise ValueError("Flujo de producto insuficiente para análisis. Ajusta T o P.")
+        raise ValueError("Flujo de producto insuficiente para análisis. Ajusta Temperatura o Presión.")
 
-    # 6. Análisis Económico
+    # 6. Análisis Económico (Bug Corregido aquí)
     tea = TEA_Didactico(
-        system=eth_sys, IRR=0.15, duration=(2025, 2045), income_tax=0.3, depreciation="MACRS7",
-        construction_schedule=(0.4, 0.6), startup_months=6, operating_days=330, lang_factor=4.0, WC_over_FCI=0.05
+        system=eth_sys, 
+        IRR=0.15, 
+        duration=(2025, 2045), 
+        income_tax=0.3, 
+        depreciation="MACRS7",
+        construction_schedule=(0.4, 0.6), 
+        startup_months=6, 
+        startup_FOCfrac=0.5,
+        startup_VOCfrac=0.5,
+        startup_salesfrac=0.5,
+        operating_days=330, 
+        lang_factor=4.0, 
+        WC_over_FCI=0.05,
+        finance_interest=0.0,
+        finance_years=0,
+        finance_fraction=0.0
     )
 
     tea.IRR = 0.0
     costo_produccion = tea.solve_price(producto)
     tea.IRR = 0.15
     precio_venta_sugerido = tea.solve_price(producto)
-    producto.price = precio_etanol # Precio real para indicadores actuales
+    producto.price = precio_etanol 
 
     datos_producto = {
         "T": producto.T - 273.15, "P": producto.P / 101325,
@@ -161,6 +175,8 @@ if st.sidebar.button("🚀 Ejecutar Simulación"):
     try:
         res = ejecutar_simulacion(900, 100, t_f, t_w, p_v*101325, p_luz, p_vap, p_agu, p_mos, p_eta)
         st.session_state['sim_data'] = res
+    except ValueError as ve:
+        st.warning(ve)
     except Exception as e:
         st.error(f"Error: {e}")
 
@@ -168,7 +184,6 @@ if st.sidebar.button("🚀 Ejecutar Simulación"):
 if 'sim_data' in st.session_state:
     df_mat, df_en, p_info, t_info, img = st.session_state['sim_data']
     
-    # Recuadros de Producto
     st.subheader("📦 Producto Final")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Temperatura", f"{p_info['T']:.1f} °C")
@@ -176,7 +191,6 @@ if 'sim_data' in st.session_state:
     c3.metric("Flujo", f"{p_info['F']:.1f} kg/h")
     c4.metric("Pureza Etanol", f"{p_info['C']:.1f} %")
 
-    # Recuadros TEA
     st.subheader("📈 Indicadores Financieros")
     t1, t2, t3, t4, t5 = st.columns(5)
     t1.metric("Costo Real", f"${t_info['Costo']:.2f}/kg")
@@ -185,32 +199,39 @@ if 'sim_data' in st.session_state:
     t4.metric("Payback", f"{t_info['PBP']:.1f} años")
     t5.metric("ROI", f"{t_info['ROI']:.1f} %")
 
-    # Tablas
     col_a, col_b = st.columns(2)
     col_a.write("**Balance de Materia**")
     col_a.dataframe(df_mat, use_container_width=True)
     col_b.write("**Balance de Energía**")
     col_b.dataframe(df_en, use_container_width=True)
 
-    # Diagramas
-    st.image(img, caption="Diagrama generado por BioSTEAM")
+    if os.path.exists(img):
+        st.image(img, caption="Diagrama generado por BioSTEAM")
 
 # --- SECCIÓN ISO (AUTOCAD) ---
 st.divider()
 st.subheader("📐 Planos ISO (AutoCAD Plant 3D)")
+st.write("Documentación técnica generada en AutoCAD Plant 3D:")
+st.write("")
+
 cp1, cp2 = st.columns(2)
 with cp1:
     st.markdown("**1. Diagrama de Bloques ISO**")
+    st.caption("Representación general de las etapas del proceso bajo normativas ISO.")
     if os.path.exists("diagrama_bloques.pdf"):
         with open("diagrama_bloques.pdf", "rb") as f:
             st.download_button("📥 Descargar DB", f, "Bloques_ISO.pdf", "application/pdf")
-    else: st.info("Sube diagrama_bloques.pdf")
+    else: 
+        st.info("Sube diagrama_bloques.pdf al repositorio.")
+        
 with cp2:
     st.markdown("**2. Avance PFD ISO**")
+    st.caption("Avance del diagrama detallado con instrumentación bajo normativas ISO.")
     if os.path.exists("diagrama_flujo.pdf"):
         with open("diagrama_flujo.pdf", "rb") as f:
             st.download_button("📥 Descargar DFP", f, "PFD_ISO.pdf", "application/pdf")
-    else: st.info("Sube diagrama_flujo.pdf")
+    else: 
+        st.info("Sube diagrama_flujo.pdf al repositorio.")
 
 # ================= MODALIDAD TUTOR IA =================
 st.divider()
@@ -219,7 +240,6 @@ st.subheader("🤖 Tutor de Ingeniería Química")
 habilitar_tutor = st.toggle("Habilitar Modo Tutor con IA")
 
 if habilitar_tutor:
-    # Configuración Gemini
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel('gemini-2.5-pro')
@@ -227,7 +247,6 @@ if habilitar_tutor:
         if "messages" not in st.session_state:
             st.session_state.messages = []
 
-        # Ventana de Chat
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -237,7 +256,6 @@ if habilitar_tutor:
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            # Preparar Contexto de Simulación
             contexto = "Contexto: No hay simulación ejecutada aún."
             if 'sim_data' in st.session_state:
                 df_m, df_e, pi, ti, _ = st.session_state['sim_data']
@@ -249,7 +267,7 @@ if habilitar_tutor:
                 - Balances: {df_m.to_string()}
                 """
 
-            full_prompt = f"Eres un experto en Ingeniería Química y BioSTEAM. {contexto}\nUsuario dice: {prompt}"
+            full_prompt = f"Eres un experto en Ingeniería Química. {contexto}\nUsuario dice: {prompt}"
             
             with st.chat_message("assistant"):
                 response = model.generate_content(full_prompt)
@@ -257,6 +275,6 @@ if habilitar_tutor:
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
                 
     except Exception as e:
-        st.error("Configura GEMINI_API_KEY en Streamlit Secrets.")
+        st.error("Por favor, asegúrate de configurar GEMINI_API_KEY en Streamlit Secrets.")
 else:
     st.info("Activa el interruptor superior para hablar con el tutor IA.")
