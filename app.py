@@ -178,7 +178,7 @@ if 'df_mat' in st.session_state and 'df_en' in st.session_state:
             try:
                 # 1. Configurar la API Key desde los "Secrets" de Streamlit
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                modelo = genai.GenerativeModel('gemini-1.5-flash')
+                modelo = genai.GenerativeModel('gemini-2.5-pro')
                 
                 # 2. Convertir las tablas a texto entendible para la IA
                 tabla_materia_md = st.session_state['df_mat'].to_markdown()
