@@ -79,31 +79,25 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
     
     bst.main_flowsheet.clear()
     
-    # 1. Configuración termodinámica
     chemicals = tmo.Chemicals(["Water", "Ethanol"])
     bst.settings.set_thermo(chemicals)
     
-    # 2. Definición de Corrientes
     mosto = bst.Stream("1-MOSTO", Water=agua_feed, Ethanol=etanol_feed, units="kg/h", T=temp_feed + 273.15, P=101325)
     vinazas_retorno = bst.Stream("Vinazas-Retorno", Water=200, Ethanol=0, units="kg/h", T=95 + 273.15, P=300000)
     
-    # 3. Equipos
     P100 = bst.Pump("P-100", ins=mosto, P=4*101325)
-    
     W210 = bst.HXprocess("W-210", ins=(P100-0, vinazas_retorno), outs=("3-Mosto-Pre", "Drenaje"), phase0="l", phase1="l")
     W210.outs[0].T = 85 + 273.15
-    
     W220 = bst.HXutility("W-220", ins=W210-0, outs="Mezcla", T=temp_w220 + 273.15)
     V100 = bst.IsenthalpicValve("V-100", ins=W220-0, outs="Mezcla-Bifasica", P=presion_v100_pa)
     V1 = bst.Flash("V-1", ins=V100-0, outs=("Vapor caliente", "Vinazas"), P=presion_v100_pa, Q=0)
     W310 = bst.HXutility("W-310", ins=V1-0, outs="Producto Final", T=25 + 273.15)
     P200 = bst.Pump("P-200", ins=V1-1, outs=vinazas_retorno, P=3*101325)
     
-    # 4. Simulación Base
     eth_sys = bst.System("planta_etanol", path=(P100, W210, W220, V100, V1, W310, P200))
     eth_sys.simulate()
 
-    # 5. Configuración de Precios de Mercado
+    # Configuración de Precios
     bst.PowerUtility.price = precio_luz
     vapor = bst.HeatUtility.get_agent("low_pressure_steam")
     vapor.heat_transfer_price = precio_vapor
@@ -111,50 +105,36 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
     agua.heat_transfer_price = precio_agua
     mosto.price = precio_mosto
     
-    # Re-simulamos para que Biosteam aplique los nuevos costos a los flujos ya calculados
     eth_sys.simulate()
 
-    # 6. Análisis Económico (TEA)
+    producto = W310.outs[0]
+    flujo_total = producto.F_mass
+    
+    # 🔴 SOLUCIÓN 1: Validar si la corriente de producto está vacía por mala termodinámica
+    if flujo_total <= 0.001:
+        raise ValueError("Las condiciones actuales (Temperatura/Presión) no evaporan el etanol. El flujo de producto es 0 kg/h, por lo que el análisis económico no se puede calcular. ¡Prueba subiendo la temperatura del W-220 o bajando la presión del V-100!")
+
     tea = TEA_Didactico(
-        system=eth_sys,
-        IRR=0.15,
-        duration=(2025, 2045),
-        income_tax=0.3,
-        depreciation="MACRS7",
-        construction_schedule=(0.4, 0.6),
-        startup_months=6,
-        startup_FOCfrac=0.5,
-        startup_VOCfrac=0.5,
-        startup_salesfrac=0.5,
-        operating_days=330,
-        lang_factor=4.0,
-        WC_over_FCI=0.05,
-        finance_interest=0.0,
-        finance_years=0.0,
-        finance_fraction=0.0,
+        system=eth_sys, IRR=0.15, duration=(2025, 2045), income_tax=0.3, depreciation="MACRS7",
+        construction_schedule=(0.4, 0.6), startup_months=6, startup_FOCfrac=0.5, startup_VOCfrac=0.5,
+        startup_salesfrac=0.5, operating_days=330, lang_factor=4.0, WC_over_FCI=0.05,
+        finance_interest=0.0, finance_years=0.0, finance_fraction=0.0,
     )
 
-    producto = W310.outs[0]
-    
-    # Extraer información física de la corriente final
-    flujo_total = producto.F_mass
-    comp_etanol = (producto.imass["Ethanol"] / flujo_total * 100) if flujo_total > 0 else 0
-    
+    comp_etanol = (producto.imass["Ethanol"] / flujo_total * 100)
     datos_producto = {
         "Temp": producto.T - 273.15,
-        "Presion": producto.P / 101325, # En atmósferas
+        "Presion": producto.P / 101325,
         "Flujo": flujo_total,
         "Composicion": comp_etanol
     }
 
-    # Cálculos Financieros Comparativos
     tea.IRR = 0.0
     costo_produccion = tea.solve_price(producto)
     
     tea.IRR = 0.15
     precio_venta = tea.solve_price(producto)
     
-    # Restauramos el precio del etanol definido por el usuario para calcular el NPV real de la planta
     producto.price = precio_etanol
     tea.IRR = 0.15
     
@@ -166,7 +146,6 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
         "ROI": tea.ROI
     }
 
-    # Reportes y Diagrama
     df_mat, df_en = generar_reporte(eth_sys)
     diagram_path = "diagrama_etanol_final"
     eth_sys.diagram(file=diagram_path, format="png")
@@ -177,7 +156,6 @@ def ejecutar_simulacion(agua_feed, etanol_feed, temp_feed, temp_w220, presion_v1
 # ================= INTERFAZ STREAMLIT =================
 st.title("🏭 Simulador y Análisis TEA: Planta de Etanol")
 
-# --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Parámetros de Operación")
 temp_feed = st.sidebar.slider("Temperatura Mosto (°C)", min_value=10, max_value=80, value=25)
 temp_w220 = st.sidebar.slider("Temperatura Calentador W-220 (°C)", min_value=80, max_value=120, value=92)
@@ -189,13 +167,13 @@ etanol_feed = st.sidebar.number_input("Flujo de Etanol (kg/h)", value=100)
 
 st.sidebar.markdown("---")
 st.sidebar.header("💰 Parámetros Económicos")
-precio_luz = st.sidebar.slider("Precio Luz ($/kWh)", 0.01, 0.20, 0.085, format="$%.3f")
-precio_vapor = st.sidebar.slider("Precio Vapor ($/MJ)", 0.01, 0.10, 0.025, format="$%.3f")
-precio_agua = st.sidebar.slider("Precio Agua ($/MJ)", 0.0001, 0.0050, 0.0005, format="$%.4f")
-precio_mosto = st.sidebar.slider("Precio Mosto ($/kg)", 0.0000001, 0.0000100, 0.0000005, format="$%.7f")
-precio_etanol = st.sidebar.slider("Precio Venta Etanol ($/kg)", 0.5, 3.0, 1.2, format="$%.2f")
+# 🔴 SOLUCIÓN 2: Agregando el parámetro 'step' a los sliders para destrabarlos
+precio_luz = st.sidebar.slider("Precio Luz ($/kWh)", min_value=0.01, max_value=0.20, value=0.085, step=0.005, format="$%.3f")
+precio_vapor = st.sidebar.slider("Precio Vapor ($/MJ)", min_value=0.01, max_value=0.10, value=0.025, step=0.005, format="$%.3f")
+precio_agua = st.sidebar.slider("Precio Agua ($/MJ)", min_value=0.0001, max_value=0.0050, value=0.0005, step=0.0001, format="$%.4f")
+precio_mosto = st.sidebar.slider("Precio Mosto ($/kg)", min_value=0.0000001, max_value=0.0000100, value=0.0000005, step=0.0000001, format="$%.7f")
+precio_etanol = st.sidebar.slider("Precio Venta Etanol ($/kg)", min_value=0.5, max_value=3.0, value=1.2, step=0.1, format="$%.2f")
 
-# --- EJECUCIÓN PRINCIPAL ---
 if st.sidebar.button("🚀 Simular Proceso y Economía"):
     with st.spinner("Calculando balances y variables económicas..."):
         try:
@@ -204,7 +182,6 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
                 precio_luz, precio_vapor, precio_agua, precio_mosto, precio_etanol
             )
             
-            # RECUADROS: Corriente de Producto Final
             st.subheader("📦 Propiedades del Producto Final")
             col_p1, col_p2, col_p3, col_p4 = st.columns(4)
             col_p1.metric("Temperatura", f"{prod_info['Temp']:.1f} °C")
@@ -214,7 +191,6 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
             
             st.markdown("---")
             
-            # RECUADROS: Indicadores TEA
             st.subheader("💵 Resultados del Análisis Económico (TEA)")
             col_t1, col_t2, col_t3, col_t4, col_t5 = st.columns(5)
             col_t1.metric("Costo Real Prod.", f"${tea_info['Costo_Produccion']:.2f} /kg")
@@ -225,7 +201,6 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
             
             st.markdown("---")
             
-            # TABLAS MATERIA Y ENERGÍA
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 st.subheader("Balance de Materia")
@@ -234,17 +209,18 @@ if st.sidebar.button("🚀 Simular Proceso y Economía"):
                 st.subheader("Balance de Energía")
                 st.dataframe(df_en, use_container_width=True)
                 
-            # DIAGRAMA
             st.subheader("🗺️ Diagrama de Flujo (PFD)")
             if os.path.exists(diagram_file):
                 st.image(diagram_file)
             else:
                 st.warning("El diagrama no se pudo renderizar. Verifica que graphviz esté instalado en el sistema.")
             
-            # GUARDAR PARA GEMINI
             st.session_state['df_mat'] = df_mat
             st.session_state['df_en'] = df_en
             
+        except ValueError as ve:
+            # Mostramos las advertencias físicas de forma limpia
+            st.warning(ve)
         except Exception as e:
             st.error(f"Error en la simulación: {e}")
 
