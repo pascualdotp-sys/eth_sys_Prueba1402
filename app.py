@@ -166,7 +166,7 @@ p_v = st.sidebar.slider("Presión Separador (atm)", 0.1, 3.0, 1.0)
 st.sidebar.header("💰 Economía")
 p_luz = st.sidebar.slider("Luz ($/kWh)", 0.01, 0.20, 0.085, 0.005)
 p_vap = st.sidebar.slider("Vapor ($/MJ)", 0.01, 0.10, 0.025, 0.005)
-p_agu = st.sidebar.slider("Agua ($/MJ)", 0.0001, 0.0050, 0.0005, 0.0001)
+p_agu = st.sidebar.number_input("Precio Agua Enf. ($/MJ)", min_value=0.0001, max_value=0.0050, value=0.0005, step=0.0001, format="%.4f")
 p_mos = st.sidebar.slider("Mosto ($/kg)", 0.0000001, 0.0000100, 0.0000005, 0.0000001, format="%.7f")
 p_eta = st.sidebar.slider("Precio Etanol ($/kg)", 0.5, 3.0, 1.2, 0.1)
 
